@@ -1,5 +1,5 @@
 public class Harmony {
-    public static double tolerance = 0.02;
+    public static double tolerance = 0.015;
     public static int maxComplexity = Integer.MAX_VALUE;
 
     public static Ratio ratio(double... frequencies) {
@@ -26,7 +26,7 @@ public class Harmony {
         for (int i = 0; i < frequencies.length; i++) {
             total += Math.abs(arr[i]-average);
         }
-        return total/average;
+        return total/(frequencies.length*average);
     }
 
     public static double fundamental(double... frequencies) {

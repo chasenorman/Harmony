@@ -19,8 +19,32 @@ public class Midi {
 
     public class MidiInputReceiver implements Receiver {
         public void send(MidiMessage msg, long timeStamp) {
-            System.out.println(Arrays.toString(msg.getMessage()));
+            byte[] b = msg.getMessage();
+            switch(b[0]) {
+                case -112: Main.instance.play(b[1]); break;
+                case -128: Main.instance.stop(b[1]); break;
+                case -80:
+                    double[] frequencies = new double[Main.notes.size()];
+                    for (int x = 0; x < Main.notes.size(); x++) {
+                        frequencies[x] = Main.notes.get(x);
+                    }
+                    System.out.println(Harmony.ratio(frequencies));
+                    break;
+                default:
+                    System.out.println(Arrays.toString(b));
+            }
         }
         public void close() {}
+    }
+
+    public void pedal(boolean state) {
+        System.out.println(state);
+        /*if (state) {
+            double[] frequencies = new double[notes.size()];
+            for (int x = 0; x < notes.size(); x++) {
+                frequencies[x] = notes.get(x);
+            }
+            println(Harmony.ratio(frequencies));
+        }*/
     }
 }
