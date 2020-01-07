@@ -3,7 +3,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class Ratio {
-    private static Map<Integer, List<Ratio>> memoized = new HashMap<>();
+    private static Map<Integer, Iterable<Ratio>> memoized = new HashMap<>();
+
+    static{
+        memoized.put(hash(1,1), Collections.singleton(new Ratio(1, new int[]{1})));
+    }
 
     int[] ratio;
     int complexity;
@@ -65,7 +69,7 @@ public class Ratio {
         }
 
         if (size < 2) {
-            throw new IllegalArgumentException("size >= 2");
+            return Collections.emptyList();
         }
 
         if (size == 2){
@@ -74,6 +78,10 @@ public class Ratio {
 
         List<Ratio> result = new ArrayList<>();
         for (int factor : new Factors(complexity)) {
+            if (factor == 5) {
+                System.out.println("here");
+            }
+
             Iterable<Ratio> rest = ratios(complexity/factor, size-1);
             for (Ratio r : rest) {
                 int[] updated = new int[size];
@@ -96,39 +104,38 @@ public class Ratio {
             i++;
         }
         BitSet bset = new BitSet(decomposition.length + 1);
+        int length = 1 << decomposition.length;
+        List<Ratio> result = new ArrayList<>(length);
 
-        Iterator<Ratio> iterator = new Iterator<Ratio>() {
-            @Override
-            public boolean hasNext() {
-                return !bset.get(decomposition.length);
+        while(!bset.get(decomposition.length)) {
+            int val = 1;
+            for (int j = 0; j < decomposition.length; j++) {
+                if (bset.get(j))
+                    val *= decomposition[j];
             }
 
-            @Override
-            public Ratio next() {
-                int result = 1;
-                for(int i = 0; i < decomposition.length; i++) {
-                    if(bset.get(i))
-                        result *= decomposition[i];
-                }
-                //increment bset
-                for(int i = 0; i < bset.size(); i++) {
-                    if(!bset.get(i)) {
-                        bset.set(i);
-                        break;
-                    } else
-                        bset.clear(i);
-                }
-
-                return new Ratio(complexity, new int[]{result, complexity/result});
+            for (int j = 0; j < bset.size(); j++) {
+                if (!bset.get(j)) {
+                    bset.set(j);
+                    break;
+                } else
+                    bset.clear(j);
             }
-        };
 
-        return () -> iterator;
+            result.add(new Ratio(complexity, new int[]{val, complexity / val}));
+        }
+
+        memoized.put(hash(2, complexity), result);
+        return result;
     }
 
     public String toString() {
         return IntStream.of(ratio)
                 .mapToObj(Integer::toString)
                 .collect(Collectors.joining(":"));
+    }
+
+    public boolean equals(Object o) {
+        return o instanceof Ratio && Arrays.equals(((Ratio)o).ratio, ratio);
     }
 }
