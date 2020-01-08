@@ -1,6 +1,6 @@
 public class Harmony {
     public static double tolerance = 0.015;
-    public static int maxComplexity = 12;
+    public static int maxComplexity = 10;
 
     public static Ratio ratio(double... frequencies) {
         for (int complexity = 1; complexity < Factors.pow(maxComplexity, frequencies.length); complexity++) {
