@@ -3,11 +3,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class Ratio {
-    private static Map<Integer, Iterable<Ratio>> memoized = new HashMap<>();
-
-    static{
-        memoized.put(hash(1,1), Collections.singleton(new Ratio(1, new int[]{1})));
-    }
+    private static Map<Integer, ArrayList<int[]>> memoized = new HashMap<>();
 
     int[] ratio;
     int complexity;
@@ -63,70 +59,156 @@ public class Ratio {
     }
 
     public static Iterable<Ratio> ratios(int complexity, int size) {
-        int hash = hash(size, complexity);
+        if (complexity == 1) {
+            int[] result = new int[size];
+            for (int i = 0; i < size; i++){
+                result[i] = 1;
+            }
+            return Collections.singleton(new Ratio(1, result));
+        }
+
+        List<ArrayList<int[]>> distributions = new ArrayList<>();
+        List<Integer> primes = new ArrayList<>();
+        Map<Integer, Integer> pf = Primes.primeFactors(complexity);
+        for (Map.Entry<Integer, Integer> e : pf.entrySet()) {
+            distributions.add(distributions(size, e.getValue()));
+            primes.add(e.getKey());
+        }
+
+        int[] indices = new int[primes.size()];
+
+        return ()-> new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return indices[indices.length-1] != distributions.get(primes.size()-1).size();
+            }
+
+            @Override
+            public Ratio next() {
+                int[] result = new int[size];
+                for (int i = 0; i < size; i++) {
+                    result[i] = 1;
+                }
+
+                for (int i = 0; i < indices.length; i++) {
+                    for (int x = 0; x < size; x++) {
+                        result[x] *= Primes.pow(primes.get(i), distributions.get(i).get(indices[i])[x]);
+                    }
+                }
+
+                increment();
+
+                return new Ratio(complexity, result);
+            }
+
+            private void increment() {
+                int i = 0;
+                while(i < indices.length-1 && indices[i] == distributions.get(i).size() - 1) {
+                    indices[i++] = 0;
+                }
+                indices[i]++;
+            }
+        };
+    }
+
+    public static ArrayList<int[]> distributions(int length, int allocate) {
+        int hash = hash(length, allocate);
         if (memoized.containsKey(hash)) {
             return memoized.get(hash);
         }
 
-        if (size < 2) {
+        ArrayList<int[]> total = new ArrayList<>();
+        for (int zeroes = Math.max(length - allocate, 1); zeroes < length; zeroes++) {
+            for (int[] locations : zeroLocations(length, zeroes)) {
+                for (int[] composition : compositions(length - zeroes, allocate)) {
+                    int[] result = new int[length];
+                    int zi = 0;
+                    int ci = 0;
+                    for (int i = 0; ci < length - zeroes; i++) {
+                        if (zi < zeroes && locations[zi] == i) {
+                            zi++;
+                        } else {
+                            result[i] = composition[ci++];
+                        }
+                    }
+                    total.add(result);
+                }
+            }
+        }
+
+        memoized.put(hash, total);
+        return total;
+    }
+
+    public static Iterable<int[]> zeroLocations(int length, int zeroes) {
+        int[] locations = new int[zeroes];
+        for (int i = 0; i < zeroes; i++) {
+            locations[i] = i;
+        }
+        locations[zeroes-1]--;
+
+        return ()->new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return locations[0] < length - zeroes;
+            }
+
+            @Override
+            public int[] next() {
+                for (int i = zeroes-1; i >= 0; i--) {
+                    if (locations[i] < length - i) {
+                        locations[i]++;
+                        for (int j = i+1; j < zeroes; j++) {
+                            locations[j] = locations[i] + (j-i);
+                        }
+                        break;
+                    }
+                }
+
+                return locations;
+            }
+        };
+    }
+
+    public static Iterable<int[]> compositions(int length, int allocate) {
+        if (allocate < length) {
             return Collections.emptyList();
         }
 
-        if (size == 2){
-            return ratios(complexity);
+        if (length == 1) {
+            return Collections.singleton(new int[]{allocate});
         }
 
-        List<Ratio> result = new ArrayList<>();
-        for (int factor : new Factors(complexity)) {
-            if (factor == 5) {
-                System.out.println("here");
-            }
-
-            Iterable<Ratio> rest = ratios(complexity/factor, size-1);
-            for (Ratio r : rest) {
-                int[] updated = new int[size];
-                System.arraycopy(r.ratio, 0, updated, 0, size-1);
-                updated[size-1] = factor;
-                result.add(new Ratio(complexity, updated));
-            }
+        int[] s = new int[length];
+        for (int i = 0; i < length-1; i++) {
+            s[i] = 1;
         }
+        s[length - 1] = allocate - length + 2;
+        s[length - 2] = 0;
 
-        memoized.put(hash, result);
-        return result;
-    }
 
-    public static Iterable<Ratio> ratios(int complexity) {
-        Set<Map.Entry<Integer, Integer>> pf = Primes.primeFactors(complexity).entrySet();
-        int[] decomposition = new int[pf.size()];
-        int i = 0;
-        for (Map.Entry<Integer, Integer> e : pf) {
-            decomposition[i] = Factors.pow(e.getKey(), e.getValue());
-            i++;
-        }
-        BitSet bset = new BitSet(decomposition.length + 1);
-        int length = 1 << decomposition.length;
-        List<Ratio> result = new ArrayList<>(length);
-
-        while(!bset.get(decomposition.length)) {
-            int val = 1;
-            for (int j = 0; j < decomposition.length; j++) {
-                if (bset.get(j))
-                    val *= decomposition[j];
+        return ()-> new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return s[0] != allocate - length + 1;
             }
 
-            for (int j = 0; j < bset.size(); j++) {
-                if (!bset.get(j)) {
-                    bset.set(j);
-                    break;
-                } else
-                    bset.clear(j);
+            @Override
+            public int[] next() {
+                for (var i = length - 1; i >= 1; i--) {
+                    if (s[i] > 1) {
+                        s[i]--;
+                        s[i-1]++;
+                        for (; i < length - 1; i++) {
+                            s[length-1] += s[i] - 1;
+                            s[i] = 1;
+                        }
+                        return s;
+                    }
+                }
+                return null;
             }
-
-            result.add(new Ratio(complexity, new int[]{val, complexity / val}));
-        }
-
-        memoized.put(hash(2, complexity), result);
-        return result;
+        };
     }
 
     public String toString() {

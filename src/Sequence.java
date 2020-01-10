@@ -10,7 +10,10 @@ public class Sequence extends AbstractList<Float> {
 
     @Override
     public int size() {
-        throw new UnsupportedOperationException();
+        while (list.size() > 0 && list.get(list.size()-1) == null) {
+            list.remove(list.size()-1);
+        }
+        return list.size();
     }
 
     @Override

@@ -1,0 +1,12 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Harmony:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Harmony_jar</output-path>
+    <root id="archive" name="Harmony.jar">
+      <element id="module-output" name="Harmony" />
+      <element id="extracted-dir" path="/Applications/Processing.app/Contents/Java/core.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/Processing/libraries/sound/library/sound.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/Processing/libraries/sound/library/jsyn-20171016.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$USER_HOME$/Documents/Processing/libraries/sound/library/javamp3-1.0.4.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

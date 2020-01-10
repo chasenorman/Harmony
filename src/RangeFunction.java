@@ -55,7 +55,7 @@ public class RangeFunction implements DoubleUnaryOperator {
         }
 
         if (idx == -1 || highs.get(idx) < v) {
-            return 0;
+            return fallback;
         }
 
         return values.get(idx);

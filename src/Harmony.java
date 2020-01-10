@@ -1,9 +1,18 @@
+import com.sun.security.jgss.GSSUtil;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 public class Harmony {
     public static double tolerance = 0.015;
-    public static int maxComplexity = 10;
+    private static int maxComplexity = 10;
+    public static int n = 1000;
+
+    public static RangeFunction harmony = harmony(1);
 
     public static Ratio ratio(double... frequencies) {
-        for (int complexity = 1; complexity < Factors.pow(maxComplexity, frequencies.length); complexity++) {
+        for (int complexity = 1; complexity < maxComplexity(frequencies.length); complexity++) {
             for (Ratio r : Ratio.ratios(complexity, frequencies.length)) {
                 if (difference(r, frequencies) < tolerance) {
                     return r;
@@ -11,6 +20,10 @@ public class Harmony {
             }
         }
         return null;
+    }
+
+    public static int maxComplexity(int n) {
+        return Primes.pow(maxComplexity, n);
     }
 
     private static double difference(Ratio r, double[] frequencies) {
@@ -59,7 +72,7 @@ public class Harmony {
 
     public static RangeFunction harmony(double... frequencies) {
         RangeFunction f = new RangeFunction(Double.MAX_VALUE);
-        for (int complexity = Factors.pow(maxComplexity, frequencies.length+1) - 1; complexity > 0; complexity--) {
+        for (int complexity = maxComplexity(frequencies.length + 1) - 1; complexity > 0; complexity--) {
             for (Ratio r : Ratio.ratios(complexity, frequencies.length+1)) {
                 double[] arr = new double[frequencies.length];
 
@@ -91,5 +104,52 @@ public class Harmony {
             }
         }
         return f;
+    }
+
+    /*public static RangeFunction harmony(double... frequencies) {
+        RangeFunction f = new RangeFunction(Double.MAX_VALUE);
+        int n = frequencies.length+1;
+        for (int complexity = maxComplexity(n) - 1; complexity > 0; complexity--) {
+            for (Ratio r : Ratio.ratios(complexity, n)) {
+                double avg = 0;
+                for (int i = 0; i < frequencies.length; i++) {
+                    avg += complexity*frequencies[i]/r.ratio[i];
+                }
+                avg /= n;
+
+                double nrc = complexity/(double)(n*r.ratio[frequencies.length]);
+
+                double avgSum = 0;
+                double avgSquareSum = 0;
+                for (double frequency : frequencies) {
+                    avgSum += (frequency - avg);
+                    avgSquareSum += (frequency - avg) * (frequency - avg);
+                }
+
+                double a = (n-1-tolerance*tolerance)*(nrc*nrc) + (1-nrc)*(1-nrc);
+                double b = -2*(avgSum*nrc + avg*(1+(tolerance*tolerance-1)*nrc));
+                double c = avgSquareSum + avg*avg*(1-tolerance*tolerance);
+
+                double descriminant = b*b - 4*a*c;
+
+                System.out.println(descriminant);
+
+                if (descriminant <= 0) {
+                    continue;
+                }
+
+                double center = -b/(2*a);
+                double width = Math.sqrt(descriminant)/(2*a);
+
+                System.out.println(center);
+
+                f.add(center-width, center+width, complexity);
+            }
+        }
+        return f;
+    }*/
+
+    public static int complexity(float f1, float f2) {
+        return (int)harmony.applyAsDouble(f1/f2);
     }
 }

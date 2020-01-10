@@ -2,27 +2,27 @@ import processing.core.PApplet;
 import processing.event.MouseEvent;
 import processing.sound.*;
 
-import javax.sound.midi.*;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Main extends PApplet {
     public static final float low = 70;
     public static final float high = 590;
+
+    public File save = new File("save.mid");
 
     public static Main instance;
 
     public boolean mute = false;
     public boolean shift = false;
 
-    int maxTick = -1;
     int time = 0;
-    RangeFunction rf;
     Oscillator[] keyboard = new Oscillator[128];
-    public static List<Voice> voices = new ArrayList<>();
-    public static List<Float> notes = new ArrayList<>();
+    public static List<Voice> voices = new CopyOnWriteArrayList<>();
+    public static List<Float> notes = new CopyOnWriteArrayList<>();
 
     public static Voice attached;
 
@@ -31,29 +31,34 @@ public class Main extends PApplet {
     }
 
     public void settings() {
-        fullScreen();
+        //fullScreen();
+        size(1000,500);
         instance = this;
     }
 
     public void setup() {
+        surface.setResizable(true);
         for (int i = 0; i < keyboard.length; i++) {
             keyboard[i] = new SinOsc(this);
             keyboard[i].set(midiToFrequency(i), 0.2f, 0, 0);
         }
         Midi.connect();
-        rf = Harmony.harmony(1);
         rectMode(CORNERS);
         try {
-            voices = Midi.load(new File("midifile.mid"));
+            voices = Midi.load(save);
         } catch(Exception e) {
-            e.printStackTrace();
+            System.out.println("No save file detected.");
         }
         for (Voice v : voices) {
-            v.update();
+            v.update(0);
         }
     }
 
-    public synchronized void draw() {
+    public void draw() {
+        for (Voice v : voices) {
+            v.update(time);
+        }
+
         background(0);
         for (int i = 0; i < voices.size(); i++) {
             if (voices.get(i).defined() && voices.get(i).enabled) {
@@ -61,9 +66,10 @@ public class Main extends PApplet {
                 plotHarmony(voices.get(i).frequency());
             }
         }
-        for (Voice d : voices) {
-            d.draw();
-        }
+
+        voices.forEach(Voice::drawPrev);
+        voices.forEach(Voice::draw);
+
         for (float f : notes) {
             stroke(255);
             strokeWeight(2);
@@ -84,12 +90,20 @@ public class Main extends PApplet {
         return 440 * pow(2, (midi - 69) / 12f);
     }
 
-    public synchronized void play(int midi) {
+    public static float velocityToVolume(byte vel) {
+        return vel/(5f*127);
+    }
+
+    public static byte volumeToVelocity(float vol) {
+        return (byte)(vol*127*5);
+    }
+
+    public void play(int midi) {
         keyboard[midi].play();
         notes.add(midiToFrequency(midi));
     }
 
-    public synchronized void stop(int midi) {
+    public void stop(int midi) {
         keyboard[midi].stop();
         notes.remove(midiToFrequency(midi));
     }
@@ -113,16 +127,22 @@ public class Main extends PApplet {
 
     public void plotHarmony(float frequency) {
         noStroke();
-        int w = rf.rangeAt(high/frequency);
-        for (int i = rf.rangeAt(low/frequency); i <= w; i++) {
+        int w = Harmony.harmony.rangeAt(high/frequency);
+        for (int i = Harmony.harmony.rangeAt(low/frequency); i <= w; i++) {
             //float h = height *(1- (1/(float)(double)rf.values.get(i)));
-            float h = ((float)(double)rf.values.get(i))*height/(float)(Harmony.maxComplexity*Harmony.maxComplexity);
-            rect(frequencyToX((float)(double)rf.lows.get(i)*frequency), h, frequencyToX((float)(double)rf.highs.get(i)*frequency), height);
+            float h = ((float)(double)Harmony.harmony.values.get(i))*height/(float)Harmony.maxComplexity(2);
+            rect(frequencyToX((float)(double)Harmony.harmony.lows.get(i)*frequency), h, frequencyToX((float)(double)Harmony.harmony.highs.get(i)*frequency), height);
         }
     }
 
     public void pedal(boolean state) {
-        System.out.println(state);
+        if (state) {
+            double[] frequencies = new double[notes.size()];
+            for (int i = 0; i < notes.size(); i++) {
+                frequencies[i] = notes.get(i);
+            }
+            System.out.println(Harmony.ratio(frequencies));
+        }
     }
 
     public Voice getVoice() {
@@ -166,6 +186,9 @@ public class Main extends PApplet {
         Voice v = getVoice();
         if (v != null) {
             v.delete();
+            if (v.size() == 0) {
+                voices.remove(v);
+            }
             return;
         }
 
@@ -175,9 +198,8 @@ public class Main extends PApplet {
             voices.add(v);
         }
 
-        maxTick = max(maxTick, time);
-        v.enabled = true;
         v.setPos(mouseX, mouseY);
+        v.setEnabled(true);
     }
 
     public void mousePressed() {
@@ -198,10 +220,20 @@ public class Main extends PApplet {
         }
     }
 
+    public int maxTick() {
+        int maxTick = 0;
+        for (Voice v : voices) {
+            if (v.size() > maxTick) {
+                 maxTick = v.size();
+            }
+        }
+        return maxTick;
+    }
+
     public void keyPressed() {
         if (key == 's') {
             try {
-                Midi.save(voices, maxTick);
+                Midi.save(voices, maxTick(), save);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -212,7 +244,7 @@ public class Main extends PApplet {
             if (time > 0) {
                 time--;
                 for (Voice v : voices) {
-                    v.update();
+                    v.update(time);
                 }
             }
             return;
@@ -221,20 +253,27 @@ public class Main extends PApplet {
         if (keyCode == RIGHT) {
             time++;
             for (Voice v : voices) {
-                v.update();
+                v.update(time);
             }
             return;
         }
 
         if (key == 'r') {
-            voices.forEach(Voice::delete);
+            List<Voice> toRemove = new ArrayList<>();
+            for (Voice v : voices) {
+                v.delete();
+                if (v.size() == 0) {
+                    toRemove.add(v);
+                }
+            }
+            voices.removeAll(toRemove);
         }
 
         if (key == 'm') {
             mute ^= true;
             for (Voice v : voices) {
                 if (v.defined()) {
-                    v.enabled = !mute;
+                    v.setEnabled(!mute);
                 }
             }
         }

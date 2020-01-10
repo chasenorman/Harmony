@@ -41,7 +41,7 @@ public class Midi implements Receiver{
         }
     }
 
-    public static void save(List<Voice> voices, int maxTick) throws InvalidMidiDataException, IOException {
+    public static void save(List<Voice> voices, int maxTick, File f) throws InvalidMidiDataException, IOException {
         javax.sound.midi.Sequence s = new javax.sound.midi.Sequence(javax.sound.midi.Sequence.PPQ, resolution/4);
         for (int x = 0; x < voices.size(); x++) {
             Track t = s.createTrack();
@@ -52,33 +52,33 @@ public class Midi implements Receiver{
             MidiEvent me = new MidiEvent(sm, 0);
             t.add(me);
 
-//****  set tempo (meta event)  ****
+            //****  set tempo (meta event)  ****
             MetaMessage mt = new MetaMessage();
             byte[] bt = {0x02, (byte) 0x00, 0x00};
             mt.setMessage(0x51, bt, 3);
             me = new MidiEvent(mt, 0);
             t.add(me);
 
-//****  set track name (meta event)  ****
+            //****  set track name (meta event)  ****
             mt = new MetaMessage();
             String TrackName = (x+1) + "/" + voices.size();
             mt.setMessage(0x03, TrackName.getBytes(), TrackName.length());
             me = new MidiEvent(mt, 0);
             t.add(me);
 
-//****  set omni on  ****
+            //****  set omni on  ****
             ShortMessage mm = new ShortMessage();
             mm.setMessage(0xB0, 0x7D, 0x00);
             me = new MidiEvent(mm, 0);
             t.add(me);
 
-//****  set poly on  ****
+            //****  set poly on  ****
             mm = new ShortMessage();
             mm.setMessage(0xB0, 0x7F, 0x00);
             me = new MidiEvent(mm, 0);
             t.add(me);
 
-//****  set instrument to Piano  ****
+            //****  set instrument to Piano  ****
             mm = new ShortMessage();
             mm.setMessage(0xC0, 0x00, 0x00);
             me = new MidiEvent(mm, 0);
@@ -86,7 +86,7 @@ public class Midi implements Receiver{
 
             populateTrack(t, voices.get(x), maxTick);
 
-//****  set end of track (meta event) 19 ticks later  ****
+            //****  set end of track ****
             mt = new MetaMessage();
             byte[] bet = {}; // empty array
             mt.setMessage(0x2F, bet, 0);
@@ -94,7 +94,6 @@ public class Midi implements Receiver{
             t.add(me);
         }
 
-        File f = new File("midifile.mid");
         MidiSystem.write(s,1,f);
     }
 
@@ -113,13 +112,13 @@ public class Midi implements Receiver{
                 me = new MidiEvent(mm, i*resolution);
                 t.add(me);
 
-//****  note on - middle C  ****
+                //****  note on  ****
                 mm = new ShortMessage();
-                mm.setMessage(0x90, note, 0x60);
+                mm.setMessage(0x90, note, Main.volumeToVelocity(v.volume(i)));
                 me = new MidiEvent(mm, i*resolution + 1);
                 t.add(me);
 
-//****  note off - middle C - 120 ticks later  ****
+                //****  note off  ****
                 mm = new ShortMessage();
                 mm.setMessage(0x80, note, 0x40);
                 me = new MidiEvent(mm, (i+1)*resolution - 1);
@@ -153,7 +152,7 @@ public class Midi implements Receiver{
                     float frequency = midiToFrequency(key + ((bend/64f)-1)*maxBendSemitones);
 
                     //int velocity = sm.getData2();
-                    v.set(((int)event.getTick())/resolution, frequency, 0.1f);
+                    v.set(((int)event.getTick())/resolution, frequency, Main.velocityToVolume((byte)sm.getData2()));
                 }
             }
         }
